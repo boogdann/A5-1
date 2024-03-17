@@ -53,32 +53,20 @@ func (a *A51) InitRegs(method int, key uint64) error {
 	return nil
 }
 
-func (a *A51) GenerateKeyStream(length int) []uint64 {
-	minLen := length / 64
-	if minLen == 0 {
-		minLen = 1
-	}
-
+func (a *A51) GenerateKeyStream(length int) []byte {
 	fmt.Printf("________________________________________________________________________\n")
 
 	var bit uint8
-	keyStream := make([]uint64, minLen+1)
-	for i := 0; i <= minLen; i++ {
-		for j := 0; j < 64 && length > 0; j++ {
-			fmt.Printf("ar1: %064b\n", a.r1)
-			fmt.Printf("ar2: %064b\n", a.r2)
-			fmt.Printf("ar3: %064b\n", a.r3)
+	keyStream := make([]byte, length)
+	for i := 0; i <= length; i++ {
+		bit = uint8(((a.r1&(2<<SizeReg1))>>SizeReg1 + 1) ^
+			((a.r2&(2<<SizeReg2))>>SizeReg2 + 1) ^
+			((a.r3&(2<<SizeReg3))>>SizeReg3 + 1),
+		)
 
-			bit = uint8(((a.r1 & (2 << (SizeReg1 - 1))) >> SizeReg1) ^
-				((a.r2 & (2 << (SizeReg2 - 1))) >> SizeReg2) ^
-				((a.r3 & (2 << (SizeReg3 - 1))) >> SizeReg3),
-			)
-
-			keyStream[i] <<= 1
-			keyStream[i] = a.xorLastBit(keyStream[i], bit)
-			a.shiftRegistersWithoutBit8()
-			length--
-		}
+		keyStream[i] = bit
+		a.shiftRegisters()
+		length--
 	}
 	return keyStream
 }
@@ -94,7 +82,9 @@ func (a *A51) initRegsMethod1(key uint64) {
 		a.r3 = a.xorLastBit(a.r3, bit)
 
 		a.shiftRotateLeft()
-		fmt.Printf("%d: %064b\n", i, a.r1)
+		fmt.Printf("%3d: %064b\n", i, a.r1)
+		//fmt.Printf("%3d: %064b\n", i, a.r2)
+		//fmt.Printf("%3d: %064b\n", i, a.r3)
 	}
 
 	fmt.Printf("ar1: %064b\n", a.r1)
@@ -111,9 +101,15 @@ func (a *A51) initRegsMethod1(key uint64) {
 }
 
 func (a *A51) shiftRegistersWithoutBit8() {
-	f := (((a.r1 & a.r2) | (a.r1 & a.r3) | (a.r2 & a.r3)) & bit8) >> 9
+	x := uint8((a.r1 & bit8) >> 9)
+	y := uint8((a.r2 & bit10) >> 11)
+	z := uint8((a.r3 & bit10) >> 11)
+
+	f := uint64((x & y) | (x & z) | (y & z))
 
 	var bit uint8
+	t := (a.r1 & bit8) >> 9
+	_ = t
 	if f == ((a.r1 & bit8) >> 9) {
 		bit = uint8(((a.r1 & bit13) >> 14) ^ ((a.r1 & bit16) >> 17) ^
 			((a.r1 & bit17) >> 18) ^ ((a.r1 & bit18) >> 19))

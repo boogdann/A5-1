@@ -1,12 +1,14 @@
 package ciphering
 
-import "2/internal/a51"
+import (
+	a51 "2/internal/a51/v2"
+)
 
 type Cipher struct {
-	a51 a51.A51
+	a51 *a51.A51
 }
 
-func New(a51 a51.A51) *Cipher {
+func New(a51 *a51.A51) *Cipher {
 	return &Cipher{
 		a51: a51,
 	}
