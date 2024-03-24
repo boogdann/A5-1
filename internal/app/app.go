@@ -11,7 +11,7 @@ import (
 
 const (
 	sizeExel      = 128
-	filename      = "file.txt"
+	filename      = "ТИ_2.docx"
 	saveFilename1 = "file_s.txt"
 	saveFilename2 = "file_s.txt"
 	dataFilename  = "data.xlsx"
@@ -42,7 +42,10 @@ func Run() {
 
 	dataFreq := calcFrequency(rawData)
 
-	if err := CreateExelFile(data, ke, cryptData, dataFreq, dataFreq); err != nil {
+	cryptRawData := getRawData(cryptData)
+	cryptFreq := calcFrequency(cryptRawData)
+
+	if err := CreateExelFile(data, ke, cryptData, dataFreq, cryptFreq); err != nil {
 		panic(err)
 	}
 
@@ -115,61 +118,87 @@ func CreateExelFile(data []byte, key []byte, cryptData []byte, dataFreq, cryptFr
 		err = f.Close()
 	}()
 
-	f.NewSheet("Frequency Histogram")
+	add(f, dataFreq, "Frequency Histogram Data")
+	add(f, cryptFreq, "Frequency Histogram CryptData")
 
-	f.SetCellValue("Frequency Histogram", "A1", "ASCII Code")
-	f.SetCellValue("Frequency Histogram", "B1", "Frequency")
-
-	// Заполняем таблицу данными
-	for i, count := range dataFreq {
-		_ = count
-		row := fmt.Sprintf("%d", i)
-		f.SetCellValue("Frequency Histogram", fmt.Sprintf("A%d", i+2), row)
-		f.SetCellValue("Frequency Histogram", fmt.Sprintf("B%d", i+2), 100)
-
-	}
-
-	// Создаем диаграмму
-	err = f.AddChart("Frequency Histogram", "C1", &excelize.Chart{
-		Type: excelize.Bar,
-		Series: []excelize.ChartSeries{
-			{
-				Name:       "Frequency Histogram!$A$2",
-				Categories: "Frequency Histogram!$A$1:!$257",
-				Values:     "Frequency Histogram!$B$1:$B$257",
-			},
-			{
-				Name:       "Frequency Histogram!$A$2",
-				Categories: "Frequency Histogram!$A$1:!$257",
-				Values:     "Frequency Histogram!$B$1:$B$257",
-			},
-		},
-	})
-
+	err = f.SetColWidth("Sheet1", "A", "C", 5)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return
 	}
+	err = f.SetRowOutlineLevel("Sheet1", 2, 1)
 
-	//err = f.SetColWidth("Sheet1", "A", "C", 5)
-	//if err != nil {
-	//	return
-	//}
-	//err = f.SetRowOutlineLevel("Sheet1", 2, 1)
-	//
-	//f.SetCellValue("Sheet1", "A1", "Data")
-	//f.SetCellValue("Sheet1", "B1", "Key")
-	//f.SetCellValue("Sheet1", "C1", "CryptData")
-	//
-	//size := min(sizeExel, len(data), len(cryptData), len(key))
-	//for i := 0; i < size; i++ {
-	//	f.SetCellValue("Sheet1", fmt.Sprintf("A%d", i+2), data[i])
-	//	f.SetCellValue("Sheet1", fmt.Sprintf("B%d", i+2), key[i])
-	//	f.SetCellValue("Sheet1", fmt.Sprintf("C%d", i+2), cryptData[i])
-	//}
+	f.SetCellValue("Sheet1", "A1", "Data")
+	f.SetCellValue("Sheet1", "B1", "Key")
+	f.SetCellValue("Sheet1", "C1", "CryptData")
+
+	size := min(sizeExel, len(data), len(cryptData), len(key))
+	for i := 0; i < size; i++ {
+		f.SetCellValue("Sheet1", fmt.Sprintf("A%d", i+2), data[i])
+		f.SetCellValue("Sheet1", fmt.Sprintf("B%d", i+2), key[i])
+		f.SetCellValue("Sheet1", fmt.Sprintf("C%d", i+2), cryptData[i])
+	}
 
 	err = f.SaveAs(dataFilename)
 	return
+}
+
+func add(f *excelize.File, data []uint64, name string) {
+	f.NewSheet(name)
+
+	inter := make([][]interface{}, len(data))
+	for i, count := range data {
+		inter[i] = []interface{}{i, count}
+	}
+
+	series := make([]excelize.ChartSeries, 256)
+	for idx, row := range inter {
+		cell, err := excelize.CoordinatesToCellName(1, idx+1)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		f.SetSheetRow(name, cell, &row)
+		series[idx] = excelize.ChartSeries{
+			Name:       fmt.Sprintf("'%s'!$A$%d", name, idx+2),
+			Categories: fmt.Sprintf("'%s'!$B$%d:$D$%d", name, idx+2, idx+2),
+			Values:     fmt.Sprintf("'%s'!$B$%d:$D$%d", name, idx+2, idx+2),
+		}
+	}
+
+	tr := true
+	if err := f.AddChart(name, "E1", &excelize.Chart{
+		Format: excelize.GraphicOptions{
+			AutoFit: false,
+			Locked:  &tr,
+			ScaleX:  3,
+			ScaleY:  10,
+		},
+		Dimension: excelize.ChartDimension{
+			Width:  500,
+			Height: 200,
+		},
+		Type:   excelize.Bar,
+		Series: series[:255],
+		Title: []excelize.RichTextRun{
+			{
+				Text: "Frequency Histogram",
+			},
+		},
+		Legend: excelize.ChartLegend{
+			ShowLegendKey: false,
+		},
+		PlotArea: excelize.ChartPlotArea{
+			ShowBubbleSize:  false,
+			ShowCatName:     false,
+			ShowLeaderLines: false,
+			ShowPercent:     false,
+			ShowSerName:     false,
+			ShowVal:         true,
+		},
+	}); err != nil {
+		fmt.Println(err)
+		return
+	}
 }
 
 func calcFrequency(data []byte) []uint64 {
@@ -178,4 +207,18 @@ func calcFrequency(data []byte) []uint64 {
 		freq[data[i]]++
 	}
 	return freq
+}
+
+func getRawData(data []byte) []byte {
+	saveData := make([]byte, len(data)/8)
+	for i, bit := range data {
+		byteIndex := i / 8
+		bitIndex := (8 - 1) - uint(i%8)
+
+		if bit == 1 {
+			saveData[byteIndex] |= 1 << bitIndex
+		}
+	}
+
+	return saveData
 }
