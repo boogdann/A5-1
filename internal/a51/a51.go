@@ -158,7 +158,17 @@ func (a *A51) initRegsMethod2(key uint64) {
 	for i := 0; i < 64; i++ {
 		bit := (key >> uint(i)) & 1
 		a.r1 = a.r1 ^ (bit ^ ((a.r1 >> 1) & 1) ^ ((a.r1 >> 2) & 1))
-		a.r2 = a.r2 ^ (bit ^ ((a.r2 >> 1) & 1) ^ ((a.r2 >> 2) & 1))
+		//} else {
+		//	if i < 20 {
+		//		f.SetCellValue("Sheet1", fmt.Sprintf("E%d", i+2-10), data[i])
+		//		f.SetCellValue("Sheet1", fmt.Sprintf("F%d", i+2-10), key[i])
+		//		f.SetCellValue("Sheet1", fmt.Sprintf("G%d", i+2-10), cryptData[i])
+		//	} else {
+		//		f.SetCellValue("Sheet1", fmt.Sprintf("I%d", i+2-20), data[i])
+		//		f.SetCellValue("Sheet1", fmt.Sprintf("J%d", i+2-20), key[i])
+		//		f.SetCellValue("Sheet1", fmt.Sprintf("K%d", i+2-20), cryptData[i])
+		//	}
+		//}	a.r2 = a.r2 ^ (bit ^ ((a.r2 >> 1) & 1) ^ ((a.r2 >> 2) & 1))
 		a.r3 = a.r3 ^ (bit ^ ((a.r3 >> 1) & 1) ^ ((a.r3 >> 2) & 1))
 		a.shiftRegisters()
 	}

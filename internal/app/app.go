@@ -11,11 +11,15 @@ import (
 
 const (
 	sizeExel      = 128
-	filename      = "picture.png"
-	saveFilename1 = "picture_save.png"
-	saveFilename2 = "picture_save.txt"
+	filename      = "file.txt"
+	saveFilename1 = "file_s.txt"
+	saveFilename2 = "file_s.txt"
 	dataFilename  = "data.xlsx"
-	key           = uint64(422672389234853)
+	key           = uint64(12345678987654)
+)
+
+var (
+	rawData []byte
 )
 
 func Run() {
@@ -23,7 +27,7 @@ func Run() {
 
 	fmt.Printf("KEY: %064b\n", key)
 
-	err := a5.InitRegs(a51.Method1, uint64ToBytesBits(key))
+	err := a5.InitRegs(a51.Method2, uint64ToBytesBits(key))
 	if err != nil {
 		panic(err)
 	}
@@ -36,7 +40,9 @@ func Run() {
 	crypt := ciphering.New(a5)
 	cryptData, ke := crypt.Encrypt(data)
 
-	if err := CreateExelFile(data, ke, cryptData); err != nil {
+	dataFreq := calcFrequency(rawData)
+
+	if err := CreateExelFile(data, ke, cryptData, dataFreq, dataFreq); err != nil {
 		panic(err)
 	}
 
@@ -46,9 +52,9 @@ func Run() {
 }
 
 func uint64ToBytesBits(num uint64) []byte {
-	byteArr := make([]byte, 64)
-	for i := 0; i < 64; i++ {
-		byteArr[i] = byte((num >> i) & 1)
+	byteArr := make([]byte, 0, 64)
+	for i := 63; i >= 0; i-- {
+		byteArr = append(byteArr, byte((num>>i)&1))
 	}
 	return byteArr
 }
@@ -63,6 +69,8 @@ func Data(filename string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	rawData = data
 
 	newData := make([]byte, 0, len(data)*8)
 	for _, num := range data {
@@ -101,29 +109,73 @@ func Save(data []byte) error {
 	return err
 }
 
-func CreateExelFile(data []byte, key []byte, cryptData []byte) (err error) {
+func CreateExelFile(data []byte, key []byte, cryptData []byte, dataFreq, cryptFreq []uint64) (err error) {
 	f := excelize.NewFile()
 	defer func() {
 		err = f.Close()
 	}()
 
-	err = f.SetColWidth("Sheet1", "A", "C", 5)
+	f.NewSheet("Frequency Histogram")
+
+	f.SetCellValue("Frequency Histogram", "A1", "ASCII Code")
+	f.SetCellValue("Frequency Histogram", "B1", "Frequency")
+
+	// Заполняем таблицу данными
+	for i, count := range dataFreq {
+		_ = count
+		row := fmt.Sprintf("%d", i)
+		f.SetCellValue("Frequency Histogram", fmt.Sprintf("A%d", i+2), row)
+		f.SetCellValue("Frequency Histogram", fmt.Sprintf("B%d", i+2), 100)
+
+	}
+
+	// Создаем диаграмму
+	err = f.AddChart("Frequency Histogram", "C1", &excelize.Chart{
+		Type: excelize.Bar,
+		Series: []excelize.ChartSeries{
+			{
+				Name:       "Frequency Histogram!$A$2",
+				Categories: "Frequency Histogram!$A$1:!$257",
+				Values:     "Frequency Histogram!$B$1:$B$257",
+			},
+			{
+				Name:       "Frequency Histogram!$A$2",
+				Categories: "Frequency Histogram!$A$1:!$257",
+				Values:     "Frequency Histogram!$B$1:$B$257",
+			},
+		},
+	})
+
 	if err != nil {
-		return
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	err = f.SetRowOutlineLevel("Sheet1", 2, 1)
 
-	f.SetCellValue("Sheet1", "A1", "Data")
-	f.SetCellValue("Sheet1", "B1", "Key")
-	f.SetCellValue("Sheet1", "C1", "CryptData")
-
-	size := min(sizeExel, len(data), len(cryptData), len(key))
-	for i := 0; i < size; i++ {
-		f.SetCellValue("Sheet1", fmt.Sprintf("A%d", i+2), data[i])
-		f.SetCellValue("Sheet1", fmt.Sprintf("B%d", i+2), key[i])
-		f.SetCellValue("Sheet1", fmt.Sprintf("C%d", i+2), cryptData[i])
-	}
+	//err = f.SetColWidth("Sheet1", "A", "C", 5)
+	//if err != nil {
+	//	return
+	//}
+	//err = f.SetRowOutlineLevel("Sheet1", 2, 1)
+	//
+	//f.SetCellValue("Sheet1", "A1", "Data")
+	//f.SetCellValue("Sheet1", "B1", "Key")
+	//f.SetCellValue("Sheet1", "C1", "CryptData")
+	//
+	//size := min(sizeExel, len(data), len(cryptData), len(key))
+	//for i := 0; i < size; i++ {
+	//	f.SetCellValue("Sheet1", fmt.Sprintf("A%d", i+2), data[i])
+	//	f.SetCellValue("Sheet1", fmt.Sprintf("B%d", i+2), key[i])
+	//	f.SetCellValue("Sheet1", fmt.Sprintf("C%d", i+2), cryptData[i])
+	//}
 
 	err = f.SaveAs(dataFilename)
 	return
+}
+
+func calcFrequency(data []byte) []uint64 {
+	freq := make([]uint64, 256)
+	for i := 0; i < len(data); i++ {
+		freq[data[i]]++
+	}
+	return freq
 }
