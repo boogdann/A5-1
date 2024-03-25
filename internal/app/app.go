@@ -3,6 +3,7 @@ package app
 import (
 	a51 "2/internal/a51/v2"
 	"2/internal/ciphering"
+	"2/internal/nist"
 	"fmt"
 	"github.com/xuri/excelize/v2"
 	"io"
@@ -15,7 +16,7 @@ const (
 	saveFilename1 = "file_s.txt"
 	saveFilename2 = "file_s.txt"
 	dataFilename  = "data.xlsx"
-	key           = uint64(12345678987654)
+	key           = uint64(81490833476438589)
 )
 
 var (
@@ -40,6 +41,14 @@ func Run() {
 	crypt := ciphering.New(a5)
 	cryptData, ke := crypt.Encrypt(data)
 
+	d := make([]byte, 0)
+	d = append(d, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1)
+	t := nist.New(d, 3)
+
+	a := t.Frequency()
+	fmt.Printf("A: %f\n", a)
+	b := t.FrequencyBlock()
+	fmt.Printf("B: %f\n", b)
 	dataFreq := calcFrequency(rawData)
 
 	cryptRawData := getRawData(cryptData)
@@ -159,9 +168,9 @@ func add(f *excelize.File, data []uint64, name string) {
 		}
 		f.SetSheetRow(name, cell, &row)
 		series[idx] = excelize.ChartSeries{
-			Name:       fmt.Sprintf("'%s'!$A$%d", name, idx+2),
-			Categories: fmt.Sprintf("'%s'!$B$%d:$D$%d", name, idx+2, idx+2),
-			Values:     fmt.Sprintf("'%s'!$B$%d:$D$%d", name, idx+2, idx+2),
+			Name:       fmt.Sprintf("'%s'!$A$%d", name, idx+1),
+			Categories: fmt.Sprintf("'%s'!$B$%d:$D$%d", name, idx+1, idx+1),
+			Values:     fmt.Sprintf("'%s'!$B$%d:$D$%d", name, idx+1, idx+1),
 		}
 	}
 

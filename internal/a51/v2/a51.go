@@ -153,7 +153,7 @@ func (a *A51) initRegsMethod2(key []byte) {
 		a.shiftRegsWithSyncBit()
 	}
 
-	a.output()
+	//a.output()
 }
 
 func (a *A51) output() {
