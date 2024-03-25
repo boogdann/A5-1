@@ -22,21 +22,28 @@ func (t *NIST) Frequency() float64 {
 	return result
 }
 
-func GammaUpperIncomplete(a, x float64) float64 {
-	step := 0.001
-	sum := 0.0
+func Igamc(a, x float64) float64 {
+	const numSteps = 10000
 
-	for i := x; i < a; i += step {
-		sum += math.Gamma(i) * step
+	integrand := func(t float64) float64 {
+		return math.Pow(t, a-1) * math.Exp(-t)
 	}
 
-	return sum
-}
+	simpson := func(f func(float64) float64, a, b float64, n int) float64 {
+		h := (b - a) / float64(n)
+		sum := f(a) + f(b)
+		for i := 1; i < n; i += 2 {
+			sum += 4 * f(a+float64(i)*h)
+		}
+		for i := 2; i < n-1; i += 2 {
+			sum += 2 * f(a+float64(i)*h)
+		}
+		return h / 3 * sum
+	}
 
-func Igamc(a, x float64) float64 {
-	gammaUpperIncomplete := GammaUpperIncomplete(a, x)
-	gamma := math.Gamma(a)
-	return gammaUpperIncomplete / gamma
+	result := simpson(integrand, 0, x, numSteps)
+
+	return 1 - result/math.Gamma(a)
 }
 
 func (t *NIST) FrequencyBlock() float64 {
@@ -70,34 +77,4 @@ func (t *NIST) calcChi(pis []float64) float64 {
 	return 4.0 * float64(t.blockCount) * sum
 }
 
-func (t *NIST) CountSeries(bits []byte) float64 {
-	seriesCount := 0
-	currentBit := bits[0]
-	seriesLength := 1
-
-	for i := 1; i < len(bits); i++ {
-		if bits[i] == currentBit {
-			seriesLength++
-		} else {
-			if seriesLength > 1 {
-				seriesCount++
-			}
-			currentBit = bits[i]
-			seriesLength = 1
-		}
-	}
-
-	if seriesLength > 1 {
-		seriesCount++
-	}
-
-	return calculatePValue(seriesCount, len(bits))
-}
-func calculatePValue(seriesCount int, sequenceLength int) float64 {
-	expectedMean := (sequenceLength + 1) / 2
-	expectedVariance := (2*sequenceLength - 1) * (2*sequenceLength - 1) / (3 * sequenceLength)
-
-	pValue := math.Erfc(math.Abs(float64(seriesCount)-float64(expectedMean)) / math.Sqrt(2*float64(expectedVariance)))
-
-	return pValue
-}
+f
