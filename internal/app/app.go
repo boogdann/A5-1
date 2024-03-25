@@ -3,7 +3,9 @@ package app
 import (
 	a51 "2/internal/a51/v2"
 	"2/internal/ciphering"
-	"2/internal/nist"
+	"2/internal/nist/freqblock"
+	"2/internal/nist/frequency"
+	"2/internal/nist/runs"
 	"fmt"
 	"github.com/xuri/excelize/v2"
 	"io"
@@ -42,15 +44,23 @@ func Run() {
 	cryptData, ke := crypt.Encrypt(data)
 
 	d := make([]byte, 0)
+	d1 := make([]byte, 0)
 	d = append(d, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1)
-	t := nist.New(d, 3)
+	d1 = append(d1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1)
 
-	a := t.Frequency()
+	freqTest := frequency.New(d)
+	a := freqTest.Run()
 	fmt.Printf("A: %f\n", a)
-	b := t.FrequencyBlock()
-	fmt.Printf("B: %f\n", b)
-	dataFreq := calcFrequency(rawData)
 
+	freqBlockTest := freqblock.New(d1, 3)
+	b := freqBlockTest.Run()
+	fmt.Printf("B: %f\n", b)
+
+	runsTest := runs.New(d1)
+	c := runsTest.Run()
+	fmt.Printf("C: %f\n", c)
+
+	dataFreq := calcFrequency(rawData)
 	cryptRawData := getRawData(cryptData)
 	cryptFreq := calcFrequency(cryptRawData)
 
