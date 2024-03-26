@@ -51,9 +51,10 @@ func (t *Test) Run() (float64, error) {
 		return math.Inf(-1), fmt.Errorf("len(bits) < minN")
 	}
 
+	n := t.n / t.m
 	vs := t.calcVs()
-	chi := t.calcChi(vs)
-	pValue := nist.Igamc(float64(t.n)/2, chi/2)
+	chi := t.calcChi(vs, float64(n))
+	pValue := nist.Igamc(float64(t.k)/2, chi/2)
 
 	return pValue, nil
 }
@@ -94,11 +95,11 @@ func (t *Test) calcRun(prevBlocks int) int {
 	return longest
 }
 
-func (t *Test) calcChi(vs []int) float64 {
+func (t *Test) calcChi(vs []int, n float64) float64 {
 	chi := 0.0
 	for i := 0; i < len(vs); i++ {
-		chi += (float64(vs[i]) - float64(t.n)*t.pis[i]) *
-			(float64(vs[i]) - float64(t.n)*t.pis[i]) / (float64(t.n) * t.pis[i])
+		chi += (float64(vs[i]) - n*t.pis[i]) *
+			(float64(vs[i]) - n*t.pis[i]) / (n * t.pis[i])
 	}
 	return chi
 }

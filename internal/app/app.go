@@ -272,6 +272,9 @@ func ReadTestData(path string) string {
 	str := fmt.Sprintf("%s", data)
 	str = strings.ReplaceAll(str, " ", "")
 	str = strings.ReplaceAll(str, "\n", "")
+	str = strings.ReplaceAll(str, "\r", "")
 
-	return string(data)
+	fmt.Printf("str: %d\n", len(str))
+
+	return str[:100000]
 }

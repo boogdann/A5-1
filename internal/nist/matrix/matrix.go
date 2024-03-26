@@ -22,7 +22,7 @@ func (m BinMatrix) Rank() int {
 	colCount := len(m[0])
 
 	for r < rowCount && c < colCount {
-		p := pivot(m, r, c)
+		p := pivot(m, c, r)
 		if p != -1 {
 			rank++
 			if p != r {
