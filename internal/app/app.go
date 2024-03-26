@@ -5,20 +5,24 @@ import (
 	"2/internal/ciphering"
 	"2/internal/nist/freqblock"
 	"2/internal/nist/frequency"
+	"2/internal/nist/rank"
 	"2/internal/nist/runs"
+	"2/internal/nist/runsblock"
 	"fmt"
 	"github.com/xuri/excelize/v2"
 	"io"
 	"os"
+	"strings"
 )
 
 const (
-	sizeExel      = 128
-	filename      = "ТИ_2.docx"
-	saveFilename1 = "file_s.txt"
-	saveFilename2 = "file_s.txt"
-	dataFilename  = "data.xlsx"
-	key           = uint64(81490833476438589)
+	sizeExel         = 128
+	testDataFilename = "data.txt"
+	filename         = "ТИ_2.docx"
+	saveFilename1    = "file_s.txt"
+	saveFilename2    = "file_s.txt"
+	dataFilename     = "data.xlsx"
+	key              = uint64(81490833476438589)
 )
 
 var (
@@ -59,6 +63,14 @@ func Run() {
 	runsTest := runs.New(d1)
 	c := runsTest.Run()
 	fmt.Printf("C: %f\n", c)
+
+	runsBlockTest := runsblock.New(strToBits("11001100000101010110110001001100111000000000001001001101010100010001001111010110100000001101011111001100111001101101100010110010"))
+	e, _ := runsBlockTest.Run()
+	fmt.Printf("E: %f\n", e)
+
+	rankTest := rank.New(strToBits(ReadTestData(testDataFilename)), 32, 32)
+	f, _ := rankTest.Run()
+	fmt.Printf("F: %f\n", f)
 
 	dataFreq := calcFrequency(rawData)
 	cryptRawData := getRawData(cryptData)
@@ -240,4 +252,26 @@ func getRawData(data []byte) []byte {
 	}
 
 	return saveData
+}
+
+func strToBits(s string) []byte {
+	data := make([]byte, 0, len(s))
+
+	for i := 0; i < len(s); i++ {
+		data = append(data, s[i]-'0')
+	}
+	return data
+}
+
+func ReadTestData(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		panic(err)
+	}
+
+	str := fmt.Sprintf("%s", data)
+	str = strings.ReplaceAll(str, " ", "")
+	str = strings.ReplaceAll(str, "\n", "")
+
+	return string(data)
 }
