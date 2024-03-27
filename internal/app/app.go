@@ -3,6 +3,7 @@ package app
 import (
 	a51 "2/internal/a51/v2"
 	"2/internal/ciphering"
+	"2/internal/nist/discrete"
 	"2/internal/nist/freqblock"
 	"2/internal/nist/frequency"
 	"2/internal/nist/rank"
@@ -71,6 +72,10 @@ func Run() {
 	rankTest := rank.New(strToBits(ReadTestData(testDataFilename)), 32, 32)
 	f, _ := rankTest.Run()
 	fmt.Printf("F: %f\n", f)
+
+	discreteTest := discrete.New(strToBits(ReadTestData(testDataFilename)))
+	g := discreteTest.Run()
+	fmt.Printf("G: %f\n", g)
 
 	dataFreq := calcFrequency(rawData)
 	cryptRawData := getRawData(cryptData)
@@ -252,15 +257,6 @@ func getRawData(data []byte) []byte {
 	}
 
 	return saveData
-}
-
-func strToBits(s string) []byte {
-	data := make([]byte, 0, len(s))
-
-	for i := 0; i < len(s); i++ {
-		data = append(data, s[i]-'0')
-	}
-	return data
 }
 
 func ReadTestData(path string) string {
