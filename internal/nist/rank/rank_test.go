@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRuns(t *testing.T) {
+func TestRank(t *testing.T) {
 	type args struct {
 		bits []byte
 		m    int

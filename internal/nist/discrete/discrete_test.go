@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRuns(t *testing.T) {
+func TestDiscrete(t *testing.T) {
 	type args struct {
 		bits []byte
 	}

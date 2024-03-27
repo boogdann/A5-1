@@ -3,44 +3,42 @@ package app
 import (
 	a51 "2/internal/a51/v2"
 	"2/internal/ciphering"
-	"2/internal/nist/discrete"
-	"2/internal/nist/freqblock"
-	"2/internal/nist/frequency"
-	"2/internal/nist/rank"
-	"2/internal/nist/runs"
-	"2/internal/nist/runsblock"
+	"2/internal/exel"
+	"2/internal/files"
 	"fmt"
-	"github.com/xuri/excelize/v2"
 	"io"
 	"os"
 	"strings"
 )
 
-const (
-	sizeExel         = 128
-	testDataFilename = "data.txt"
-	filename         = "ТИ_2.docx"
-	saveFilename1    = "file_s.txt"
-	saveFilename2    = "file_s.txt"
-	dataFilename     = "data.xlsx"
-	key              = uint64(81490833476438589)
-)
+type App struct {
+	method   int
+	filename string
 
-var (
-	rawData []byte
-)
+	key uint64
 
-func Run() {
+	data    []byte
+	keyBits []byte
+	cipher  []byte
+}
+
+func New(method int, filename string, key uint64) *App {
+	return &App{
+		method:   method,
+		filename: filename,
+		key:      key,
+	}
+}
+
+func (a *App) Run() ([]byte, []byte, []byte) {
 	a5 := a51.New()
 
-	fmt.Printf("KEY: %064b\n", key)
-
-	err := a5.InitRegs(a51.Method2, uint64ToBytesBits(key))
+	err := a5.InitRegs(a.method, uint64ToBytesBits(a.key))
 	if err != nil {
 		panic(err)
 	}
 
-	data, err := Data(filename)
+	data, err := Data(a.filename)
 	if err != nil {
 		panic(err)
 	}
@@ -48,46 +46,45 @@ func Run() {
 	crypt := ciphering.New(a5)
 	cryptData, ke := crypt.Encrypt(data)
 
-	d := make([]byte, 0)
-	d1 := make([]byte, 0)
-	d = append(d, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1)
-	d1 = append(d1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1)
+	a.data = data
+	a.keyBits = ke
+	a.cipher = cryptData
 
-	freqTest := frequency.New(d)
-	a := freqTest.Run()
-	fmt.Printf("A: %f\n", a)
+	return data, ke, cryptData
+}
 
-	freqBlockTest := freqblock.New(d1, 3)
-	b := freqBlockTest.Run()
-	fmt.Printf("B: %f\n", b)
-
-	runsTest := runs.New(d1)
-	c := runsTest.Run()
-	fmt.Printf("C: %f\n", c)
-
-	runsBlockTest := runsblock.New(strToBits("11001100000101010110110001001100111000000000001001001101010100010001001111010110100000001101011111001100111001101101100010110010"))
-	e, _ := runsBlockTest.Run()
-	fmt.Printf("E: %f\n", e)
-
-	rankTest := rank.New(strToBits(ReadTestData(testDataFilename)), 32, 32)
-	f, _ := rankTest.Run()
-	fmt.Printf("F: %f\n", f)
-
-	discreteTest := discrete.New(strToBits(ReadTestData(testDataFilename)))
-	g := discreteTest.Run()
-	fmt.Printf("G: %f\n", g)
-
-	dataFreq := calcFrequency(rawData)
-	cryptRawData := getRawData(cryptData)
-	cryptFreq := calcFrequency(cryptRawData)
-
-	if err := CreateExelFile(data, ke, cryptData, dataFreq, cryptFreq); err != nil {
-		panic(err)
+func (a *App) Save(pathTmplt, pathExelTmplt string) error {
+	name := a.filename
+	prevName := a.filename
+	found := true
+	for found {
+		_, name, found = strings.Cut(name, "/")
+		if !found {
+			name = prevName
+		}
+		prevName = name
 	}
 
-	if err := Save(cryptData); err != nil {
-		panic(err)
+	name, _, found = strings.Cut(name, ".")
+	if !found {
+		name = a.filename
 	}
+
+	err := files.Save(fmt.Sprintf(fmt.Sprintf("%s.txt", pathTmplt), name, a.method), a.cipher)
+	if err != nil {
+		return err
+	}
+
+	dataFreq := calcFrequency(getRawData(a.data))
+	cipherFreq := calcFrequency(getRawData(a.cipher))
+
+	exelFile := exel.New(128, fmt.Sprintf(fmt.Sprintf("%s.xlsx", pathExelTmplt), name, a.method))
+	err = exelFile.Save(a.data, a.keyBits, a.cipher, dataFreq, cipherFreq)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func uint64ToBytesBits(num uint64) []byte {
@@ -109,8 +106,6 @@ func Data(filename string) ([]byte, error) {
 		return nil, err
 	}
 
-	rawData = data
-
 	newData := make([]byte, 0, len(data)*8)
 	for _, num := range data {
 		for i := 7; i >= 0; i-- {
@@ -119,122 +114,6 @@ func Data(filename string) ([]byte, error) {
 	}
 
 	return newData, nil
-}
-func Save(data []byte) error {
-	file, err := os.Create(saveFilename1)
-	if err != nil {
-		return err
-	}
-
-	saveData := make([]byte, len(data)/8)
-	for i, bit := range data {
-		byteIndex := i / 8
-		bitIndex := (8 - 1) - uint(i%8)
-
-		if bit == 1 {
-			saveData[byteIndex] |= 1 << bitIndex
-		}
-	}
-
-	_, err = file.Write(saveData)
-
-	file, err = os.Create(saveFilename2)
-	if err != nil {
-		return err
-	}
-
-	_, err = file.Write(saveData)
-
-	return err
-}
-
-func CreateExelFile(data []byte, key []byte, cryptData []byte, dataFreq, cryptFreq []uint64) (err error) {
-	f := excelize.NewFile()
-	defer func() {
-		err = f.Close()
-	}()
-
-	add(f, dataFreq, "Frequency Histogram Data")
-	add(f, cryptFreq, "Frequency Histogram CryptData")
-
-	err = f.SetColWidth("Sheet1", "A", "C", 5)
-	if err != nil {
-		return
-	}
-	err = f.SetRowOutlineLevel("Sheet1", 2, 1)
-
-	f.SetCellValue("Sheet1", "A1", "Data")
-	f.SetCellValue("Sheet1", "B1", "Key")
-	f.SetCellValue("Sheet1", "C1", "CryptData")
-
-	size := min(sizeExel, len(data), len(cryptData), len(key))
-	for i := 0; i < size; i++ {
-		f.SetCellValue("Sheet1", fmt.Sprintf("A%d", i+2), data[i])
-		f.SetCellValue("Sheet1", fmt.Sprintf("B%d", i+2), key[i])
-		f.SetCellValue("Sheet1", fmt.Sprintf("C%d", i+2), cryptData[i])
-	}
-
-	err = f.SaveAs(dataFilename)
-	return
-}
-
-func add(f *excelize.File, data []uint64, name string) {
-	f.NewSheet(name)
-
-	inter := make([][]interface{}, len(data))
-	for i, count := range data {
-		inter[i] = []interface{}{i, count}
-	}
-
-	series := make([]excelize.ChartSeries, 256)
-	for idx, row := range inter {
-		cell, err := excelize.CoordinatesToCellName(1, idx+1)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		f.SetSheetRow(name, cell, &row)
-		series[idx] = excelize.ChartSeries{
-			Name:       fmt.Sprintf("'%s'!$A$%d", name, idx+1),
-			Categories: fmt.Sprintf("'%s'!$B$%d:$D$%d", name, idx+1, idx+1),
-			Values:     fmt.Sprintf("'%s'!$B$%d:$D$%d", name, idx+1, idx+1),
-		}
-	}
-
-	tr := true
-	if err := f.AddChart(name, "E1", &excelize.Chart{
-		Format: excelize.GraphicOptions{
-			AutoFit: false,
-			Locked:  &tr,
-			ScaleX:  3,
-			ScaleY:  10,
-		},
-		Dimension: excelize.ChartDimension{
-			Width:  500,
-			Height: 200,
-		},
-		Type:   excelize.Bar,
-		Series: series[:255],
-		Title: []excelize.RichTextRun{
-			{
-				Text: "Frequency Histogram",
-			},
-		},
-		Legend: excelize.ChartLegend{
-			ShowLegendKey: false,
-		},
-		PlotArea: excelize.ChartPlotArea{
-			ShowBubbleSize:  false,
-			ShowCatName:     false,
-			ShowLeaderLines: false,
-			ShowPercent:     false,
-			ShowSerName:     false,
-			ShowVal:         true,
-		},
-	}); err != nil {
-		fmt.Println(err)
-		return
-	}
 }
 
 func calcFrequency(data []byte) []uint64 {
@@ -257,20 +136,4 @@ func getRawData(data []byte) []byte {
 	}
 
 	return saveData
-}
-
-func ReadTestData(path string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		panic(err)
-	}
-
-	str := fmt.Sprintf("%s", data)
-	str = strings.ReplaceAll(str, " ", "")
-	str = strings.ReplaceAll(str, "\n", "")
-	str = strings.ReplaceAll(str, "\r", "")
-
-	fmt.Printf("str: %d\n", len(str))
-
-	return str[:100000]
 }

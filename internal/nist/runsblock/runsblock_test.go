@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestRuns(t *testing.T) {
+func TestRunsBlock(t *testing.T) {
 	type args struct {
 		bits []byte
 	}
@@ -28,7 +28,7 @@ func TestRuns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			test := New(tt.args.bits)
 			if got, _ := test.Run(); got != tt.want {
-				t.Errorf("frequency.Run() = %v, want %v", got, tt.want)
+				t.Errorf("runsblock.Run() = %v, want %v", got, tt.want)
 			}
 		})
 	}
