@@ -8,10 +8,12 @@ import (
 type File struct {
 	sizeExel     int
 	exelFilename string
+	idx          int
 }
 
 func New(sizeExel int, exelFilename string) *File {
 	return &File{
+		idx:          1,
 		sizeExel:     sizeExel,
 		exelFilename: exelFilename,
 	}
@@ -104,4 +106,32 @@ func add(f *excelize.File, data []uint64, name string) {
 		fmt.Println(err)
 		return
 	}
+}
+
+func (e *File) SaveTests(idx int, testName string, testRes float64) (err error) {
+	const sheetName = "NIST"
+
+	f, err := excelize.OpenFile(e.exelFilename)
+	if err != nil {
+		return
+	}
+
+	defer func() {
+		err1 := f.Close()
+		if err1 != nil {
+			err = err1
+		}
+	}()
+
+	i, err := f.NewSheet(sheetName)
+	_ = i
+
+	cell, err := excelize.CoordinatesToCellName(1, idx)
+	err = f.SetCellValue(sheetName, cell, testName)
+
+	cell, err = excelize.CoordinatesToCellName(2, idx)
+	err = f.SetCellValue(sheetName, cell, testRes)
+
+	err = f.SaveAs(e.exelFilename)
+	return
 }

@@ -55,7 +55,18 @@ func Test(t *testing.T) {
 				filename:      "img.png",
 				key:           437893983487323,
 				pathTmplt:     "cipher/%s.method_%d.save",
-				pathExelTmplt: "exel/%s.method_%d.save"},
+				pathExelTmplt: "exel/%s.method_%d.save",
+			},
+		},
+		{
+			name: "Test 5",
+			args: args{
+				method:        a51.Method2,
+				filename:      "mov.mp4",
+				key:           437893983487323,
+				pathTmplt:     "cipher/%s.method_%d.save",
+				pathExelTmplt: "exel/%s.method_%d.save",
+			},
 		},
 	}
 

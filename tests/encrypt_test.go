@@ -60,6 +60,16 @@ func TestEncrypt(t *testing.T) {
 				pathExelTmplt: "exelplain/%s.method_%d.save",
 			},
 		},
+		{
+			name: "Test 5",
+			args: args{
+				method:        a51.Method2,
+				filename:      "cipher/mov.method_2.save.txt",
+				key:           437893983487323,
+				pathTmplt:     "plain/%s.method_%d.save",
+				pathExelTmplt: "exelplain/%s.method_%d.save",
+			},
+		},
 	}
 
 	t.Parallel()
